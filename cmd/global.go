@@ -23,6 +23,17 @@ func globalEntrypoint(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 
+	if !paths.VersionInstalled() {
+		fmt.Printf("Version %s is not installed\n", globalVersionVar)
+		os.Exit(1)
+	}
+
+	err = paths.RemoveGlobalSymlinksIfExists()
+	if err != nil {
+		fmt.Printf("Error removing symlinks: %s\n", err)
+		os.Exit(1)
+	}
+
 	err = paths.CreateGlobalPythonSymlinks()
 	if err != nil {
 		fmt.Printf("Error creating symlinks: %s\n", err)

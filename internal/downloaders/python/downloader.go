@@ -6,51 +6,30 @@ import (
 	"time"
 )
 
-type Downloader interface {
-	Download() (string, error)
-	GetDownloadURL() string
-}
-
-type URLMetadata struct {
-	RequiredInstaller string
-	DownloadFile      string
-}
-
 type PyDownloader struct {
 	DownloadTarget string
 	Version        string
-	meta           *URLMetadata
+	FileName       string
 }
 
 func NewPythonDownloader(target, version string) (*PyDownloader, error) {
 	return &PyDownloader{
 		DownloadTarget: target,
 		Version:        version,
-		meta:           NewURLMetadata(version),
+		FileName:       fmt.Sprintf("Python-%s.tgz", version),
 	}, nil
 }
 
-func NewURLMetadata(version string) *URLMetadata {
-	return &URLMetadata{
-		RequiredInstaller: "python-source",
-		DownloadFile:      fmt.Sprintf("Python-%s.tgz", version),
-	}
-}
-
 func (pd *PyDownloader) GetDownloadPath() string {
-	return pd.DownloadTarget + "/" + pd.meta.DownloadFile
+	return pd.DownloadTarget + "/" + pd.FileName
 }
 
-func (meta *URLMetadata) getDownloadURL() string {
-	return fmt.Sprintf("https://www.python.org/ftp/python/%s/", meta.DownloadFile)
-}
-
-func (meta *URLMetadata) GetPythonTarballURL(version string) string {
-	return fmt.Sprintf("https://www.python.org/ftp/python/%s/Python-%s.tgz", version, version)
+func (pd *PyDownloader) GetPythonTarballURL() string {
+	return fmt.Sprintf("https://www.python.org/ftp/python/%s/Python-%s.tgz", pd.Version, pd.Version)
 }
 
 func (pd *PyDownloader) Download() error {
-	url := pd.meta.GetPythonTarballURL(pd.Version)
+	url := pd.GetPythonTarballURL()
 	if url == "" {
 		return fmt.Errorf("no download URL found")
 	}
@@ -66,40 +45,3 @@ func (pd *PyDownloader) Download() error {
 	done <- true
 	return nil
 }
-
-//
-//func GetVersionToInstall(version string) (*URLMetadata, error) {
-//	os := runtime.GOOS
-//	arch := runtime.GOARCH
-//	var file string
-//
-//	switch os {
-//
-//	case "darwin":
-//		macos, err := utils.GetMacOSVersion()
-//		if err != nil {
-//			return nil, err
-//		}
-//		file = "python-" + version + "-macosx" + macos + ".pkg"
-//
-//	case "linux":
-//		if arch == "amd64" {
-//			file = "python-" + version + "-linux-x86_64.tar.xz"
-//		} else if arch == "arm64" {
-//			file = "python-" + version + "3.9.7-linux-aarch64.tar.xz"
-//		}
-//
-//	case "windows":
-//		if arch == "amd64" {
-//			file = "python-" + version + "-amd64.exe"
-//		} else if arch == "386" {
-//			file = "python-" + version + ".exe"
-//		}
-//	default:
-//		return nil, fmt.Errorf("unsupported OS or architecture")
-//	}
-//	return &URLMetadata{
-//		RequiredInstaller: os,
-//		DownloadFile:      file,
-//	}, nil
-//}

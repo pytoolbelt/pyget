@@ -66,16 +66,41 @@ func (p *PyGetPaths) CreateDirs() error {
 	return nil
 }
 
+func (p *PyGetPaths) RemoveDirs() error {
+	dirs := []string{p.ExtractionDir, p.InstallDir}
+	for _, dir := range dirs {
+		err := os.RemoveAll(dir)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func RemoveTarball(path string) error {
+	err := os.Remove(path)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (p *PyGetPaths) FindPythonBinaries() ([]string, error) {
 	var binaries []string
+	var globalVersion string
 
+	globalVersion = p.ReadGlobalSymlinkVersions()
 	err := filepath.Walk(p.InstallRoot, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() && info.Name() == "python3" {
 			parts := strings.Split(path, "/")
-			binaries = append(binaries, parts[len(parts)-3])
+			v := parts[len(parts)-3]
+			if v == globalVersion {
+				v = v + " <-- global"
+			}
+			binaries = append(binaries, v)
 		}
 		return nil
 	})
@@ -105,6 +130,19 @@ func (p *PyGetPaths) PrintInstalledPythonVersionsRaw(binaries []string) {
 	}
 }
 
+func (p *PyGetPaths) RemoveGlobalSymlinksIfExists() error {
+	symlinks := []string{p.PythonGlobalSymlink, p.Python3GlobalSymlink, p.PythonVersionSymlink, p.PipGlobalSymlink, p.Pip3GlobalSymlink}
+	for _, symlink := range symlinks {
+		if _, err := os.Lstat(symlink); err == nil {
+			err := os.Remove(symlink)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (p *PyGetPaths) CreateGlobalPythonSymlinks() error {
 	sources := []string{p.PythonGlobalSymlink, p.Python3GlobalSymlink, p.PythonVersionSymlink}
 
@@ -124,4 +162,21 @@ func (p *PyGetPaths) CreateGlobalPythonSymlinks() error {
 		}
 	}
 	return nil
+}
+
+func (p *PyGetPaths) ReadGlobalSymlinkVersions() string {
+	link, err := os.Readlink(p.PythonGlobalSymlink)
+
+	if err != nil {
+		return ""
+	}
+	parts := strings.Split(link, "/")
+	return parts[len(parts)-3]
+}
+
+func (p *PyGetPaths) VersionInstalled() bool {
+	if _, err := os.Stat(p.InstallDir); os.IsNotExist(err) {
+		return false
+	}
+	return true
 }

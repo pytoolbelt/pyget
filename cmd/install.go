@@ -6,6 +6,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/pytoolbelt/pyget/internal/processes"
+	"github.com/pytoolbelt/pyget/internal/utils"
 	"os"
 
 	"github.com/pytoolbelt/pyget/internal/downloaders/python"
@@ -14,19 +15,25 @@ import (
 )
 
 func installEntrypoint(cmd *cobra.Command, args []string) {
-	paths, err := paths.NewPyGetPaths("3.11.10")
+
+	if !utils.VersionIsValid(installVersion) {
+		fmt.Println("Invalid version number")
+		os.Exit(1)
+	}
+
+	pygetPaths, err := paths.NewPyGetPaths(installVersion)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	err = paths.CreateDirs()
+	err = pygetPaths.CreateDirs()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	downloader, err := python.NewPythonDownloader(paths.InstallDir, paths.Version)
+	downloader, err := python.NewPythonDownloader(pygetPaths.InstallDir, pygetPaths.Version)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -35,28 +42,38 @@ func installEntrypoint(cmd *cobra.Command, args []string) {
 	err = downloader.Download()
 	if err != nil {
 		fmt.Println(err)
+		err = pygetPaths.RemoveDirs()
+		if err != nil {
+			fmt.Println(err)
+		}
 		os.Exit(1)
 	}
 
-	err = processes.ExtractPythonTarball(downloader.GetDownloadPath(), paths.ExtractionDir)
+	err = processes.ExtractPythonTarball(downloader.GetDownloadPath(), pygetPaths.ExtractionDir)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	err = processes.RunPythonConfigureScript(paths.SourceDir, paths.InstallDir)
+	err = paths.RemoveTarball(downloader.GetDownloadPath())
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	err = processes.RunPythonMake(paths.SourceDir)
+	err = processes.RunPythonConfigureScript(pygetPaths.SourceDir, pygetPaths.InstallDir)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
 
-	err = processes.RunPythonMakeInstall(paths.SourceDir)
+	err = processes.RunPythonMake(pygetPaths.SourceDir)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	err = processes.RunPythonMakeInstall(pygetPaths.SourceDir)
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -72,8 +89,11 @@ var installCmd = &cobra.Command{
 	Run:   installEntrypoint,
 }
 
+var installVersion string
+
 func init() {
 	rootCmd.AddCommand(installCmd)
+	installCmd.Flags().StringVarP(&installVersion, "version", "v", "", "Python version to install")
 }
 
 //https://www.python.org/ftp/python/3.12.7/python-3.12.7-macos11.pkg
