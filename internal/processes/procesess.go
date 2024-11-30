@@ -24,8 +24,7 @@ func RunPythonConfigureScript(path, prefix string) error {
 		fmt.Sprintf("--prefix=%s", prefix),
 	)
 	cmd.Dir = path
-	// cmd.Stdout = os.Stdout
-	// cmd.Stderr = os.Stderr
+	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	env := os.Environ()
@@ -49,13 +48,21 @@ func RunPythonConfigureScript(path, prefix string) error {
 func RunPythonMake(path string) error {
 	cmd := exec.Command("make")
 	cmd.Dir = path
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	env := os.Environ()
 	cmd.Env = append(cmd.Env, env...)
+
+	// Create a channel to signal the spinner to stop
+	done := make(chan bool)
+	go utils.Spinner(100*time.Millisecond, done, "Running make ", path)
+
 	err := cmd.Run()
+
+	// Signal the spinner to stop
+	done <- true
+
 	if err != nil {
 		return fmt.Errorf("error running make: %s", err)
 	}
@@ -65,13 +72,21 @@ func RunPythonMake(path string) error {
 func RunPythonMakeInstall(path string) error {
 	cmd := exec.Command("make", "install")
 	cmd.Dir = path
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 
 	env := os.Environ()
 	cmd.Env = append(cmd.Env, env...)
+
+	// Create a channel to signal the spinner to stop
+	done := make(chan bool)
+	go utils.Spinner(100*time.Millisecond, done, "Running make install ", path)
+
 	err := cmd.Run()
+
+	// Signal the spinner to stop
+	done <- true
+
 	if err != nil {
 		return fmt.Errorf("error running make install: %s", err)
 	}
